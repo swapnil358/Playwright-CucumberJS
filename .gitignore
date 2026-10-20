@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Test reports
+reports/*
+!reports/.gitkeep
+
+# Screenshots and test artifacts
+screenshots/
+test-results/
+playwright-report/
+blob-report/
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+*.log
+
+# Operating system files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE settings
+.vscode/
+.idea/
+
+# Coverage
+coverage/
+
+# Temporary files
+*.tmp
+*.swp
