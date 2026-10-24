@@ -1,25 +1,20 @@
-
 class LoginPage {
   constructor(page) {
     this.page = page;
 
-    this.usernameInput = page.getByRole('textbox', {
-      name: 'Username'
-    });
-
-    this.passwordInput = page.getByRole('textbox', {
-      name: 'Password'
-    });
-
-    this.loginButton = page.getByRole('button', {
-      name: 'Login'
-    });
-
+    // SauceDemo login form locators
+    this.usernameInput = page.locator('#user-name');
+    this.passwordInput = page.locator('#password');
+    this.loginButton = page.locator('#login-button');
     this.errorMessage = page.locator('[data-test="error"]');
+
+    // Inventory page locator
+    this.productsTitle = page.locator('.title');
   }
 
   async open() {
-    await this.page.goto('https://www.saucedemo.com/');
+    const baseUrl = process.env.BASE_URL || 'https://www.saucedemo.com';
+    await this.page.goto(baseUrl);
   }
 
   async login(username, password) {
@@ -29,7 +24,7 @@ class LoginPage {
   }
 
   async getErrorMessage() {
-    return await this.errorMessage.textContent();
+    return (await this.errorMessage.textContent())?.trim();
   }
 }
 

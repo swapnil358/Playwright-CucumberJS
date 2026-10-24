@@ -1,7 +1,7 @@
 {
   "name": "playwright-cucumber_framework",
   "version": "1.0.0",
-  "description": "",
+  "description": "Playwright + Cucumber.js framework for SauceDemo with reusable Chai assertions",
   "main": "index.js",
   "scripts": {
     "test": "cucumber-js",
@@ -15,6 +15,9 @@
   "type": "commonjs",
   "devDependencies": {
     "@cucumber/cucumber": "^13.3.0",
+    "allure": "^3.22.1",
+    "allure-cucumberjs": "^3.14.0",
+    "chai": "^4.5.0",
     "cross-env": "^10.1.0",
     "playwright": "^1.64.1"
   }

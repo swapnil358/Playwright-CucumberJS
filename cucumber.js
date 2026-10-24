@@ -1,18 +1,19 @@
 
 module.exports = {
   default: {
-    paths: ['features.js/**/*.feature'],
-
+    format: [
+      'summary',
+      'html:reports/cucumber-report.html'
+    ],
     require: [
       'hooks/**/*.js',
       'stepDef/**/*.js'
     ],
-
-    format: [
-      'progress',
-      'html:reports/cucumber-report.html'
-    ],
-
-    publishQuiet: true
+    // tags: process.env.TAG || '@smoke',
+    retry: process.env.RETRY
+      ? Number(process.env.RETRY)
+      : 0,
+    parallel: 1,
+    paths: ['features.js/support/**/*.feature'],
   }
 };
