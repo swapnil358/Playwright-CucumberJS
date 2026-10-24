@@ -3,8 +3,12 @@ module.exports = {
   default: {
     format: [
       'summary',
-      'html:reports/cucumber-report.html'
+      'html:reports/cucumber-report.html',
+      'allure-cucumberjs/reporter'
     ],
+    formatOptions: {
+      resultsDir: 'allure-results'
+    },
     require: [
       'hooks/**/*.js',
       'stepDef/**/*.js'

@@ -16,6 +16,7 @@
   "devDependencies": {
     "@cucumber/cucumber": "^13.3.0",
     "allure": "^3.22.1",
+    "allure-commandline": "^2.46.1",
     "allure-cucumberjs": "^3.14.0",
     "chai": "^4.5.0",
     "cross-env": "^10.1.0",
