@@ -7,7 +7,10 @@
     "test": "cucumber-js",
     "test:login": "cucumber-js --name \"Login with valid credentials\"",
     "test:headed": "cross-env HEADLESS=false cucumber-js",
-    "test:headless": "cross-env HEADLESS=true cucumber-js"
+    "test:headless": "cross-env HEADLESS=true cucumber-js",
+    "report:generate": "allure generate allure-results --clean -o allure-report",
+    "report:open": "allure open allure-report",
+    "report": "npm run report:generate && npm run report:open"
   },
   "keywords": [],
   "author": "",
