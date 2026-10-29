@@ -1,36 +1,39 @@
-
 const logs = [];
 
 const logger = {
   log(message) {
-    logs.push(String(message));
+    const formattedMessage = `***** ${message}`;
+    logs.push(formattedMessage);
 
     if (global.CONSOLE_LOG) {
-      console.log(message);
+      console.log(formattedMessage);
     }
   },
 
   error(message) {
-    logs.push(`ERROR: ${message}`);
+    const formattedMessage = `${message}`;
+    logs.push(formattedMessage);
 
     if (global.CONSOLE_LOG) {
-      console.error(message);
+      console.error(formattedMessage);
     }
   },
 
   warn(message) {
-    logs.push(`WARN: ${message}`);
+    const formattedMessage = `${message}`;
+    logs.push(formattedMessage);
 
     if (global.CONSOLE_LOG) {
-      console.warn(message);
+      console.warn(formattedMessage);
     }
   },
 
   success(message) {
-    logs.push(String(message));
+    const formattedMessage = `${message}`;
+    logs.push(formattedMessage);
 
     if (global.CONSOLE_LOG) {
-      console.log(`\x1b[32m${message}\x1b[0m`);
+      console.log(formattedMessage);
     }
   },
 
