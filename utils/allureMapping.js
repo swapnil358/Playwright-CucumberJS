@@ -18,13 +18,11 @@ function addAllureMapping() {
     const resultsDir = path.join(process.cwd(), 'allure-results');
 
     if (!fs.existsSync(resultsDir)) {
-        console.log('Allure results folder not found.');
         return;
     }
 
     const files = fs.readdirSync(resultsDir);
 
-    // Collect all Jira IDs configured in jira.json.
     const allMappedJiraIds = new Set(
         Object.values(jiraIssues).flatMap(toArray)
     );
@@ -43,7 +41,6 @@ function addAllureMapping() {
 
             const scenarioName = result.name;
 
-            // Read and deduplicate authors and Jira IDs.
             const scenarioAuthors = [
                 ...new Set(toArray(authors[scenarioName]))
             ];
@@ -55,7 +52,7 @@ function addAllureMapping() {
             result.labels = result.labels || [];
             result.links = result.links || [];
 
-            // Remove previously mapped author labels.
+            // Remove existing author labels.
             result.labels = result.labels.filter(
                 label => label.name !== 'author'
             );
@@ -68,12 +65,11 @@ function addAllureMapping() {
                 });
             }
 
-            // Remove previous Authors lines to prevent duplication.
+            // Prevent duplicate author descriptions.
             const existingDescription = (result.description || '')
                 .replace(/^Authors:.*(?:\r?\n|$)+/gm, '')
                 .trim();
 
-            // Add the author list only once.
             result.description = scenarioAuthors.length
                 ? `Authors: ${scenarioAuthors.join(', ')}` +
                   (existingDescription
@@ -101,23 +97,15 @@ function addAllureMapping() {
                 });
             }
 
-            // Write the updated result file.
+            // Save updated Allure result.
             fs.writeFileSync(
                 filePath,
                 JSON.stringify(result, null, 2),
                 'utf8'
             );
 
-            console.log(
-                `Mapping completed: ${scenarioName} | ` +
-                `Authors: ${scenarioAuthors.join(', ')} | ` +
-                `Stories: ${scenarioJiraIds.join(', ')}`
-            );
-
         } catch (error) {
-            console.error(
-                `Failed to map ${file}: ${error.message}`
-            );
+            // Ignore invalid or incomplete result files.
         }
     }
 }
