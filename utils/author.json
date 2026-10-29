@@ -1,0 +1,12 @@
+{
+  "Login with valid credentials": ["Swapnil", "John", "Mike"],
+  "Login with invalid credentials": ["Triveni", "Samaya", "Rahul"],
+  "Login with problem user": ["Amit", "Priya", "Sneha"],
+  "Login with performance glitch user": ["Vikram", "Neha", "Karan"],
+  "Login with empty username": ["Anjali", "Rohit", "Pooja"],
+  "Login with empty password": ["Suresh", "Kavita", "Arjun"],
+  "Login with empty username and password": ["Meera", "Nikhil", "Divya"],
+  "Login with username containing spaces": ["Raj", "Isha", "Varun"],
+  "Login with locked out user": ["Deepak", "Aarti", "Manish"],
+  "Login with valid username and incorrect password": ["Snehal", "Aditya", "Riya"]
+}

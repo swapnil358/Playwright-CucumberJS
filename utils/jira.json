@@ -1,0 +1,12 @@
+{
+  "Login with valid credentials": ["PROJ-101", "PROJ-102", "PROJ-103"],
+  "Login with invalid credentials": ["PROJ-104", "PROJ-105", "PROJ-106"],
+  "Login with problem user": ["PROJ-107", "PROJ-108", "PROJ-109"],
+  "Login with performance glitch user": ["PROJ-110", "PROJ-111", "PROJ-112"],
+  "Login with empty username": ["PROJ-113", "PROJ-114", "PROJ-115"],
+  "Login with empty password": ["PROJ-116", "PROJ-117", "PROJ-118"],
+  "Login with empty username and password": ["PROJ-119", "PROJ-120", "PROJ-121"],
+  "Login with username containing spaces": ["PROJ-122", "PROJ-123", "PROJ-124"],
+  "Login with locked out user": ["PROJ-125", "PROJ-126", "PROJ-127"],
+  "Login with valid username and incorrect password": ["PROJ-128", "PROJ-129", "PROJ-130"]
+}

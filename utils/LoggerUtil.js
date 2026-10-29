@@ -1,27 +1,48 @@
+const logs = [];
 
 const logger = {
   log(message) {
+    const formattedMessage = `***** ${message}`;
+    logs.push(formattedMessage);
+
     if (global.CONSOLE_LOG) {
-      console.log(message);
+      console.log(formattedMessage);
     }
   },
 
   error(message) {
+    const formattedMessage = `${message}`;
+    logs.push(formattedMessage);
+
     if (global.CONSOLE_LOG) {
-      console.error(message);
+      console.error(formattedMessage);
     }
   },
 
   warn(message) {
+    const formattedMessage = `${message}`;
+    logs.push(formattedMessage);
+
     if (global.CONSOLE_LOG) {
-      console.warn(message);
+      console.warn(formattedMessage);
     }
   },
 
   success(message) {
+    const formattedMessage = `${message}`;
+    logs.push(formattedMessage);
+
     if (global.CONSOLE_LOG) {
-      console.log(`\x1b[32m${message}\x1b[0m`);
+      console.log(formattedMessage);
     }
+  },
+
+  getLogs() {
+    return logs.join('\n');
+  },
+
+  clearLogs() {
+    logs.length = 0;
   }
 };
 

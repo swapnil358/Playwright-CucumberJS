@@ -4,6 +4,7 @@ const {
   After,
   BeforeStep,
   AfterStep,
+  AfterAll,
   Status,
   setDefaultTimeout
 } = require('@cucumber/cucumber');
@@ -13,16 +14,19 @@ const fs = require('fs');
 const path = require('path');
 const { Assert } = require('../utils/assert');
 const logger = require('../utils/LoggerUtil');
-
+const { addAllureMapping } = require('../utils/allureMapping');
 
 global.CONSOLE_LOG = true;
-
 global.assert = new Assert();
 
 setDefaultTimeout(30000);
 
+// Before scenario
 Before(async function (scenario) {
-  logger.log(`Starting scenario: ${scenario.pickle.name}`);
+  logger.clearLogs();
+
+  this.scenarioName = scenario.pickle.name;
+  logger.log(`Starting scenario: ${this.scenarioName}`);
 
   this.browser = await chromium.launch({
     headless: process.env.HEADLESS !== 'false'
@@ -37,30 +41,39 @@ Before(async function (scenario) {
   logger.log('Browser, context and page created');
 });
 
+// Before step
 BeforeStep(function ({ pickleStep }) {
   logger.success(`Starting step: ${pickleStep.text}`);
 });
 
-AfterStep(function ({ pickleStep, result }) {
+// After step
+AfterStep(async function ({ pickleStep, result }) {
   if (result.status === Status.PASSED) {
     logger.log(`Step passed: ${pickleStep.text}`);
-  } else if (result.status === Status.FAILED) {
+  }
+
+  if (result.status === Status.FAILED) {
     logger.error(`Step failed: ${pickleStep.text}`);
 
     if (result.message) {
       logger.error(result.message);
     }
-  } else {
-    logger.warn(`Step status: ${result.status} - ${pickleStep.text}`);
-  }
-});
-
-After(async function (scenario) {
-  if (scenario.result?.status === Status.FAILED) {
-    logger.error(`Scenario failed: ${scenario.pickle.name}`);
 
     if (this.page) {
-      const screenshotDir = path.join(process.cwd(), 'screenshots');
+      const screenshot = await this.page.screenshot({
+        fullPage: true
+      });
+
+      await this.attach(screenshot, {
+        mediaType: 'image/png',
+        fileName: 'failure-screenshot.png'
+      });
+
+      const screenshotDir = path.join(
+        process.cwd(),
+        'screenshots'
+      );
+
       fs.mkdirSync(screenshotDir, { recursive: true });
 
       const screenshotPath = path.join(
@@ -68,26 +81,36 @@ After(async function (scenario) {
         `failure-${Date.now()}.png`
       );
 
-      await this.page.screenshot({
-        path: screenshotPath,
-        fullPage: true
-      });
+      fs.writeFileSync(screenshotPath, screenshot);
 
-      await this.attach(
-        fs.readFileSync(screenshotPath),
-        'image/png'
-      );
-
-      logger.log(`Failure screenshot saved: ${screenshotPath}`);
+      logger.log(`Screenshot saved: ${screenshotPath}`);
     }
-  } else {
-    logger.log(
-      `Scenario completed: ${scenario.pickle.name} - ${scenario.result?.status}`
-    );
+
+    await this.attach(logger.getLogs(), {
+      mediaType: 'text/plain',
+      fileName: 'execution-logs.txt'
+    });
+  }
+});
+
+// After scenario
+After(async function (scenario) {
+  logger.log(
+    `Scenario: ${scenario.pickle.name} - ${scenario.result?.status}`
+  );
+
+  if (this.context) {
+    await this.context.close();
   }
 
-  if (this.context) await this.context.close();
-  if (this.browser) await this.browser.close();
+  if (this.browser) {
+    await this.browser.close();
+  }
 
   logger.log('Browser resources closed');
+});
+
+// Add author and Jira mapping after all scenarios
+AfterAll(function () {
+  addAllureMapping();
 });
