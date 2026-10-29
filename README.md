@@ -389,5 +389,3 @@ Do not commit passwords, access tokens, or other secrets.
 Software Test Automation | Playwright | JavaScript | CucumberJS | Selenium | CI/CD
 
 ## License
-
-Add the appropriate licence for your project if you intend to distribute or publish it.
