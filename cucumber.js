@@ -17,7 +17,7 @@ module.exports = {
     ],
 
     // Run with: cross-env TAG="@smoke" cucumber-js
-    // tags: process.env.TAG || '@smoke',
+    //tags: process.env.TAG || '@smoke',
 
     retry: process.env.RETRY
       ? Number(process.env.RETRY)
