@@ -15,6 +15,7 @@ const path = require('path');
 const { Assert } = require('../utils/assert');
 const logger = require('../utils/LoggerUtil');
 const { addAllureMapping } = require('../utils/allureMapping');
+const { Browser } = require('../utils/Browser');
 
 global.CONSOLE_LOG = true;
 global.assert = new Assert();
@@ -35,6 +36,7 @@ Before(async function (scenario) {
   this.context = await this.browser.newContext();
   this.page = await this.context.newPage();
 
+  global.browser = new Browser(this.page);
   assert.setPage(this.page);
   assert.resetSoftAssertions();
 
