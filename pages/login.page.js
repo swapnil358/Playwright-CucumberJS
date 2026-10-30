@@ -1,31 +1,31 @@
 class LoginPage {
-  constructor(page) {
-    this.page = page;
+    constructor(page) {
+        this.page = page;
 
-    // SauceDemo login form locators
-    this.usernameInput = page.locator('#user-name');
-    this.passwordInput = page.locator('#password');
-    this.loginButton = page.locator('#login-button');
-    this.errorMessage = page.locator('[data-test="error"]');
+        // SauceDemo login form locators
+        this.usernameInput = page.locator('#user-name');
+        this.passwordInput = page.locator('#password');
+        this.loginButton = page.locator('#login-button');
+        this.errorMessage = page.locator('[data-test="error"]');
 
-    // Inventory page locator
-    this.productsTitle = page.locator('.title');
-  }
+        // Inventory page locator
+        this.productsTitle = page.locator('.title');
+    }
 
-  async open() {
-    const baseUrl = process.env.BASE_URL || 'https://www.saucedemo.com';
-    await this.page.goto(baseUrl);
-  }
+    async open() {
+        const baseUrl = process.env.BASE_URL || 'https://www.saucedemo.com';
+        await browser.navigateTo(baseUrl);
+    }
 
-  async login(username, password) {
-    await this.usernameInput.fill(username);
-    await this.passwordInput.fill(password);
-    await this.loginButton.click();
-  }
+    async login(username, password) {
+        await browser.fill(this.usernameInput, username);
+        await browser.fill(this.passwordInput, password);
+        await browser.click(this.loginButton);
+    }
 
-  async getErrorMessage() {
-    return (await this.errorMessage.textContent())?.trim();
-  }
+    async getErrorMessage() {
+        return await browser.getText(this.errorMessage);
+    }
 }
 
 module.exports = { LoginPage };
