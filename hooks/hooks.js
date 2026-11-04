@@ -84,7 +84,7 @@ After(async function (scenario) {
       await this.browser.close();
     }
   } finally {
-    logger.log('Browser resources closed');
+    //logger.log('Browser resources closed');
   }
 });
 

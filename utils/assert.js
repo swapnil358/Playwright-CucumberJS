@@ -12,50 +12,70 @@ class Assert {
         this.currentStep = 'Unknown Cucumber step';
     }
 
-    // ==================== LOGGING ====================
+    // =========================================================
+    // LOGGING
+    // =========================================================
 
-    logPassed(message, expected, actual) {
-        logger.log(`\x1b[32m✓\x1b[0m ${message} : Expected: ${expected} | Actual: ${actual} | Result: PASSED`);
+    formatAssertionName(assertionName) {
+        return assertionName.charAt(0).toUpperCase() + assertionName.slice(1);
     }
 
-    logFailed(message, expected, actual, error) {
-        logger.log(`\x1b[31m✗\x1b[0m ${message} : Expected: ${expected} | Actual: ${actual} | Result: FAILED`);
+   
+logPassed(assertionName, expected, actual) {
+    const formattedName = this.formatAssertionName(assertionName);
 
-        if (error && error.message) {
-            logger.log(`  Error: ${error.message}`);
-        }
+    logger.pass(
+        `✓ ${formattedName} : Expected: ${expected} | Actual: ${actual} | Result: PASSED`
+    );
+}
+
+logFailed(assertionName, expected, actual, error) {
+    const formattedName = this.formatAssertionName(assertionName);
+
+    logger.fail(
+        `✗ ${formattedName} : Expected: ${expected} | Actual: ${actual} | Result: FAILED`
+    );
+
+    if (error && error.message) {
+        logger.error(`Error: ${error.message}`);
     }
+}
 
-    // ==================== SOFT ASSERTION HELPERS ====================
+
+    // =========================================================
+    // SOFT ASSERTION HELPERS
+    // =========================================================
 
     setCurrentStep(stepName) {
         this.currentStep = stepName;
     }
 
     getCallSite() {
-    const stack = new Error().stack || '';
-    const lines = stack.split('\n');
+        const stack = new Error().stack || '';
+        const lines = stack.split('\n');
 
-    const caller = lines.find(line =>
-        line.includes('stepDef') &&
-        line.includes('.js:') &&
-        !line.includes('assert.js')
-    );
+        const caller = lines.find(line =>
+            line.includes('stepDef') &&
+            line.includes('.js:') &&
+            !line.includes('assert.js')
+        );
 
-    if (!caller) {
-        return 'Location unavailable';
+        if (!caller) {
+            return 'Location unavailable';
+        }
+
+        const match = caller.match(/\((.*)\)/);
+
+        return match ? match[1] : caller.trim();
     }
 
-    const match = caller.match(/\((.*)\)/);
-
-    return match ? match[1] : caller.trim();
-}
-
     recordSoftAssertion(condition, message, expected, actual, callSite) {
-        const status = condition ? 'PASSED' : 'FAILED';
+
+    // Log and collect only failed soft assertions
+    if (!condition) {
 
         const logMessage = [
-            `* ${status}: ${message}`,
+            `FAILED: ${message}`,
             `  Step     : ${this.currentStep}`,
             `  Location : ${callSite}`,
             `  Expected : ${expected}`,
@@ -64,14 +84,15 @@ class Assert {
 
         logger.log(logMessage);
 
-        if (!condition) {
-            this.softFailures.push(logMessage);
-        }
-
-        return condition;
+        this.softFailures.push(logMessage);
     }
 
-    // ==================== PAGE SETUP ====================
+    return condition;
+}
+
+    // =========================================================
+    // PAGE SETUP
+    // =========================================================
 
     setPage(page) {
         this.page = page;
@@ -82,17 +103,23 @@ class Assert {
         this.currentStep = 'Unknown Cucumber step';
     }
 
-    // ==================== HARD ASSERTIONS ====================
+    // =========================================================
+    // HARD ASSERTIONS - GENERAL
+    // =========================================================
 
     assertUrlContains(expected) {
         let actual;
 
         try {
             actual = this.page.url();
-            expect(actual, 'URL should contain expected text').to.include(expected);
-            this.logPassed('URL contains expected text', expected, actual);
+
+            expect(actual, 'URL should contain expected text')
+                .to.include(expected);
+
+            this.logPassed('assertUrlContains', expected, actual);
+
         } catch (error) {
-            this.logFailed('URL contains expected text', expected, actual, error);
+            this.logFailed('assertUrlContains', expected, actual, error);
             throw error;
         }
     }
@@ -102,10 +129,14 @@ class Assert {
 
         try {
             actual = this.page.url();
-            expect(actual, 'URL should match expected value').to.equal(expected);
-            this.logPassed('URL matches expected value', expected, actual);
+
+            expect(actual, 'URL should match expected value')
+                .to.equal(expected);
+
+            this.logPassed('assertUrlEquals', expected, actual);
+
         } catch (error) {
-            this.logFailed('URL matches expected value', expected, actual, error);
+            this.logFailed('assertUrlEquals', expected, actual, error);
             throw error;
         }
     }
@@ -115,10 +146,14 @@ class Assert {
 
         try {
             actual = await this.page.title();
-            expect(actual, 'Page title should match expected value').to.equal(expected);
-            this.logPassed('Page title matches expected value', expected, actual);
+
+            expect(actual, 'Page title should match expected value')
+                .to.equal(expected);
+
+            this.logPassed('assertPageTitle', expected, actual);
+
         } catch (error) {
-            this.logFailed('Page title matches expected value', expected, actual, error);
+            this.logFailed('assertPageTitle', expected, actual, error);
             throw error;
         }
     }
@@ -126,9 +161,11 @@ class Assert {
     assertEqual(actual, expected) {
         try {
             expect(actual, 'Values should be equal').to.equal(expected);
-            this.logPassed('Values are equal', expected, actual);
+
+            this.logPassed('assertEqual', expected, actual);
+
         } catch (error) {
-            this.logFailed('Values are equal', expected, actual, error);
+            this.logFailed('assertEqual', expected, actual, error);
             throw error;
         }
     }
@@ -136,9 +173,11 @@ class Assert {
     assertNotEqual(actual, expected) {
         try {
             expect(actual, 'Values should not be equal').to.not.equal(expected);
-            this.logPassed('Values are not equal', `Not ${expected}`, actual);
+
+            this.logPassed('assertNotEqual', `Not ${expected}`, actual);
+
         } catch (error) {
-            this.logFailed('Values are not equal', `Not ${expected}`, actual, error);
+            this.logFailed('assertNotEqual', `Not ${expected}`, actual, error);
             throw error;
         }
     }
@@ -146,9 +185,11 @@ class Assert {
     assertTrue(actual) {
         try {
             expect(actual, 'Value should be true').to.equal(true);
-            this.logPassed('Value is true', true, actual);
+
+            this.logPassed('assertTrue', true, actual);
+
         } catch (error) {
-            this.logFailed('Value is true', true, actual, error);
+            this.logFailed('assertTrue', true, actual, error);
             throw error;
         }
     }
@@ -156,9 +197,11 @@ class Assert {
     assertFalse(actual) {
         try {
             expect(actual, 'Value should be false').to.equal(false);
-            this.logPassed('Value is false', false, actual);
+
+            this.logPassed('assertFalse', false, actual);
+
         } catch (error) {
-            this.logFailed('Value is false', false, actual, error);
+            this.logFailed('assertFalse', false, actual, error);
             throw error;
         }
     }
@@ -166,9 +209,11 @@ class Assert {
     assertNull(actual) {
         try {
             expect(actual, 'Value should be null').to.equal(null);
-            this.logPassed('Value is null', null, actual);
+
+            this.logPassed('assertNull', null, actual);
+
         } catch (error) {
-            this.logFailed('Value is null', null, actual, error);
+            this.logFailed('assertNull', null, actual, error);
             throw error;
         }
     }
@@ -176,19 +221,24 @@ class Assert {
     assertContainsText(actual, expected) {
         try {
             expect(actual, 'Text should contain expected value').to.include(expected);
-            this.logPassed('Text contains expected value', expected, actual);
+
+            this.logPassed('assertContainsText', expected, actual);
+
         } catch (error) {
-            this.logFailed('Text contains expected value', expected, actual, error);
+            this.logFailed('assertContainsText', expected, actual, error);
             throw error;
         }
     }
 
     assertDoesNotContainText(actual, expected) {
         try {
-            expect(actual, 'Text should not contain unexpected value').to.not.include(expected);
-            this.logPassed('Text excludes unexpected value', expected, actual);
+            expect(actual, 'Text should not contain unexpected value')
+                .to.not.include(expected);
+
+            this.logPassed('assertDoesNotContainText', expected, actual);
+
         } catch (error) {
-            this.logFailed('Text excludes unexpected value', expected, actual, error);
+            this.logFailed('assertDoesNotContainText', expected, actual, error);
             throw error;
         }
     }
@@ -197,9 +247,11 @@ class Assert {
         try {
             expect(actual.toLowerCase(), 'Values should match ignoring case')
                 .to.equal(expected.toLowerCase());
-            this.logPassed('Values match ignoring case', expected, actual);
+
+            this.logPassed('assertEqualIgnoreCase', expected, actual);
+
         } catch (error) {
-            this.logFailed('Values match ignoring case', expected, actual, error);
+            this.logFailed('assertEqualIgnoreCase', expected, actual, error);
             throw error;
         }
     }
@@ -209,10 +261,13 @@ class Assert {
             const actualValue = actual.trim().replace(/\s+/g, ' ').toLowerCase();
             const expectedValue = expected.trim().replace(/\s+/g, ' ').toLowerCase();
 
-            expect(actualValue, 'Values should match ignoring case and whitespace').to.equal(expectedValue);
-            this.logPassed('Values match ignoring case and whitespace', expected, actual);
+            expect(actualValue, 'Values should match ignoring case and whitespace')
+                .to.equal(expectedValue);
+
+            this.logPassed('assertEqualIgnoreCaseAndWhitespace', expected, actual);
+
         } catch (error) {
-            this.logFailed('Values match ignoring case and whitespace', expected, actual, error);
+            this.logFailed('assertEqualIgnoreCaseAndWhitespace', expected, actual, error);
             throw error;
         }
     }
@@ -220,9 +275,11 @@ class Assert {
     assertArrayEquals(actual, expected) {
         try {
             expect(actual, 'Arrays should be equal').to.deep.equal(expected);
-            this.logPassed('Arrays are equal', expected, actual);
+
+            this.logPassed('assertArrayEquals', expected, actual);
+
         } catch (error) {
-            this.logFailed('Arrays are equal', expected, actual, error);
+            this.logFailed('assertArrayEquals', expected, actual, error);
             throw error;
         }
     }
@@ -230,47 +287,66 @@ class Assert {
     assertArrayIncludes(actual, expected) {
         try {
             expect(actual, 'Array should include expected value').to.include(expected);
-            this.logPassed('Array includes expected value', expected, actual);
+
+            this.logPassed('assertArrayIncludes', expected, actual);
+
         } catch (error) {
-            this.logFailed('Array includes expected value', expected, actual, error);
+            this.logFailed('assertArrayIncludes', expected, actual, error);
             throw error;
         }
     }
 
     assertArrayNotIncludes(actual, expected) {
         try {
-            expect(actual, 'Array should not include unexpected value').to.not.include(expected);
-            this.logPassed('Array excludes unexpected value', expected, actual);
+            expect(actual, 'Array should not include unexpected value')
+                .to.not.include(expected);
+
+            this.logPassed('assertArrayNotIncludes', expected, actual);
+
         } catch (error) {
-            this.logFailed('Array excludes unexpected value', expected, actual, error);
+            this.logFailed('assertArrayNotIncludes', expected, actual, error);
             throw error;
         }
     }
 
     assertNormalizedJsonEqual(actual, expected) {
         try {
-            const actualJson = typeof actual === 'string' ? JSON.parse(actual) : actual;
-            const expectedJson = typeof expected === 'string' ? JSON.parse(expected) : expected;
+            const actualJson = typeof actual === 'string'
+                ? JSON.parse(actual)
+                : actual;
 
-            expect(actualJson, 'JSON values should be equal').to.deep.equal(expectedJson);
-            this.logPassed('JSON values are equal', expectedJson, actualJson);
+            const expectedJson = typeof expected === 'string'
+                ? JSON.parse(expected)
+                : expected;
+
+            expect(actualJson, 'JSON values should be equal')
+                .to.deep.equal(expectedJson);
+
+            this.logPassed('assertNormalizedJsonEqual', expectedJson, actualJson);
+
         } catch (error) {
-            this.logFailed('JSON values are equal', expected, actual, error);
+            this.logFailed('assertNormalizedJsonEqual', expected, actual, error);
             throw error;
         }
     }
 
-    // ==================== PLAYWRIGHT ASSERTIONS ====================
+    // =========================================================
+    // PLAYWRIGHT ASSERTIONS
+    // =========================================================
 
     async assertElementTextEquals(locator, expected) {
         let actual;
 
         try {
             actual = (await locator.textContent()) || '';
-            expect(actual.trim(), 'Element text should match').to.equal(expected);
-            this.logPassed('Element text matches', expected, actual.trim());
+
+            expect(actual.trim(), 'Element text should match')
+                .to.equal(expected);
+
+            this.logPassed('assertElementTextEquals', expected, actual.trim());
+
         } catch (error) {
-            this.logFailed('Element text matches', expected, actual, error);
+            this.logFailed('assertElementTextEquals', expected, actual, error);
             throw error;
         }
     }
@@ -284,9 +360,10 @@ class Assert {
             expect(actual.trim().toLowerCase(), 'Element text should match ignoring case')
                 .to.equal(expected.trim().toLowerCase());
 
-            this.logPassed('Element text matches ignoring case', expected, actual.trim());
+            this.logPassed('assertElementTextEqualsIgnoreCase', expected, actual.trim());
+
         } catch (error) {
-            this.logFailed('Element text matches ignoring case', expected, actual, error);
+            this.logFailed('assertElementTextEqualsIgnoreCase', expected, actual, error);
             throw error;
         }
     }
@@ -296,10 +373,14 @@ class Assert {
 
         try {
             actual = (await locator.textContent()) || '';
-            expect(actual, 'Element should contain expected text').to.include(expected);
-            this.logPassed('Element contains expected text', expected, actual);
+
+            expect(actual, 'Element should contain expected text')
+                .to.include(expected);
+
+            this.logPassed('assertElementContainsText', expected, actual);
+
         } catch (error) {
-            this.logFailed('Element contains expected text', expected, actual, error);
+            this.logFailed('assertElementContainsText', expected, actual, error);
             throw error;
         }
     }
@@ -309,10 +390,13 @@ class Assert {
 
         try {
             actual = await locator.isVisible();
+
             expect(actual, 'Element should be visible').to.equal(true);
-            this.logPassed('Element is visible', true, actual);
+
+            this.logPassed('assertElementIsVisible', true, actual);
+
         } catch (error) {
-            this.logFailed('Element is visible', true, actual, error);
+            this.logFailed('assertElementIsVisible', true, actual, error);
             throw error;
         }
     }
@@ -322,10 +406,13 @@ class Assert {
 
         try {
             actual = await locator.isVisible();
+
             expect(actual, 'Element should not be visible').to.equal(false);
-            this.logPassed('Element is not visible', false, actual);
+
+            this.logPassed('assertElementIsNotVisible', false, actual);
+
         } catch (error) {
-            this.logFailed('Element is not visible', false, actual, error);
+            this.logFailed('assertElementIsNotVisible', false, actual, error);
             throw error;
         }
     }
@@ -335,10 +422,13 @@ class Assert {
 
         try {
             actual = await locator.isEnabled();
+
             expect(actual, 'Element should be enabled').to.equal(true);
-            this.logPassed('Element is enabled', true, actual);
+
+            this.logPassed('assertElementIsEnabled', true, actual);
+
         } catch (error) {
-            this.logFailed('Element is enabled', true, actual, error);
+            this.logFailed('assertElementIsEnabled', true, actual, error);
             throw error;
         }
     }
@@ -348,10 +438,13 @@ class Assert {
 
         try {
             actual = await locator.isDisabled();
+
             expect(actual, 'Element should be disabled').to.equal(true);
-            this.logPassed('Element is disabled', true, actual);
+
+            this.logPassed('assertElementIsDisabled', true, actual);
+
         } catch (error) {
-            this.logFailed('Element is disabled', true, actual, error);
+            this.logFailed('assertElementIsDisabled', true, actual, error);
             throw error;
         }
     }
@@ -361,10 +454,13 @@ class Assert {
 
         try {
             actual = await locator.isChecked();
+
             expect(actual, 'Element should be checked').to.equal(true);
-            this.logPassed('Element is checked', true, actual);
+
+            this.logPassed('assertElementIsChecked', true, actual);
+
         } catch (error) {
-            this.logFailed('Element is checked', true, actual, error);
+            this.logFailed('assertElementIsChecked', true, actual, error);
             throw error;
         }
     }
@@ -374,10 +470,13 @@ class Assert {
 
         try {
             actual = await locator.isChecked();
+
             expect(actual, 'Element should not be checked').to.equal(false);
-            this.logPassed('Element is not checked', false, actual);
+
+            this.logPassed('assertElementIsNotChecked', false, actual);
+
         } catch (error) {
-            this.logFailed('Element is not checked', false, actual, error);
+            this.logFailed('assertElementIsNotChecked', false, actual, error);
             throw error;
         }
     }
@@ -387,10 +486,13 @@ class Assert {
 
         try {
             actual = await locator.inputValue();
+
             expect(actual, 'Element value should match').to.equal(expected);
-            this.logPassed('Element value matches', expected, actual);
+
+            this.logPassed('assertElementValueEquals', expected, actual);
+
         } catch (error) {
-            this.logFailed('Element value matches', expected, actual, error);
+            this.logFailed('assertElementValueEquals', expected, actual, error);
             throw error;
         }
     }
@@ -400,10 +502,13 @@ class Assert {
 
         try {
             actual = await locator.getAttribute(attribute);
+
             expect(actual, 'Element attribute should match').to.equal(expected);
-            this.logPassed('Element attribute matches', expected, actual);
+
+            this.logPassed('assertElementAttributeEquals', expected, actual);
+
         } catch (error) {
-            this.logFailed('Element attribute matches', expected, actual, error);
+            this.logFailed('assertElementAttributeEquals', expected, actual, error);
             throw error;
         }
     }
@@ -420,9 +525,19 @@ class Assert {
             expect(visible, 'Element should be visible').to.equal(true);
             expect(enabled, 'Element should be enabled').to.equal(true);
 
-            this.logPassed('Element is clickable', 'visible=true, enabled=true', actual);
+            this.logPassed(
+                'assertElementIsClickable',
+                'visible=true, enabled=true',
+                actual
+            );
+
         } catch (error) {
-            this.logFailed('Element is clickable', 'visible=true, enabled=true', actual, error);
+            this.logFailed(
+                'assertElementIsClickable',
+                'visible=true, enabled=true',
+                actual,
+                error
+            );
             throw error;
         }
     }
@@ -435,10 +550,13 @@ class Assert {
                 actual.push(await locator.isVisible());
             }
 
-            expect(actual.every(Boolean), 'All elements should be displayed').to.equal(true);
-            this.logPassed('All elements are displayed', true, actual);
+            expect(actual.every(Boolean), 'All elements should be displayed')
+                .to.equal(true);
+
+            this.logPassed('assertArrayOfElementsAreDisplayed', true, actual);
+
         } catch (error) {
-            this.logFailed('All elements are displayed', true, actual, error);
+            this.logFailed('assertArrayOfElementsAreDisplayed', true, actual, error);
             throw error;
         }
     }
@@ -447,30 +565,42 @@ class Assert {
         let actual = [];
 
         try {
-            expect(locators.length, 'Number of elements should match').to.equal(expectedTexts.length);
+            expect(locators.length, 'Number of elements should match')
+                .to.equal(expectedTexts.length);
 
             for (const locator of locators) {
                 actual.push(((await locator.textContent()) || '').trim());
             }
 
-            expect(actual, 'Element texts should match expected values').to.deep.equal(expectedTexts);
-            this.logPassed('Element texts match expected values', expectedTexts, actual);
+            expect(actual, 'Element texts should match expected values')
+                .to.deep.equal(expectedTexts);
+
+            this.logPassed('assertArrayOfElementsTextEquals', expectedTexts, actual);
+
         } catch (error) {
-            this.logFailed('Element texts match expected values', expectedTexts, actual, error);
+            this.logFailed('assertArrayOfElementsTextEquals', expectedTexts, actual, error);
             throw error;
         }
     }
 
-    // ==================== SOFT ASSERTIONS ====================
+    // =========================================================
+    // SOFT ASSERTIONS
+    // =========================================================
 
     softAssertEqual(actual, expected) {
         const callSite = this.getCallSite();
 
         try {
             expect(actual, 'Values should be equal').to.equal(expected);
-            return this.recordSoftAssertion(true, 'Values are equal', expected, actual, callSite);
+
+            return this.recordSoftAssertion(
+                true, 'Values are equal', expected, actual, callSite
+            );
+
         } catch (error) {
-            return this.recordSoftAssertion(false, 'Values are equal', expected, actual, callSite);
+            return this.recordSoftAssertion(
+                false, 'Values are equal', expected, actual, callSite
+            );
         }
     }
 
@@ -479,9 +609,15 @@ class Assert {
 
         try {
             expect(actual, 'Value should be true').to.equal(true);
-            return this.recordSoftAssertion(true, 'Value is true', true, actual, callSite);
+
+            return this.recordSoftAssertion(
+                true, 'Value is true', true, actual, callSite
+            );
+
         } catch (error) {
-            return this.recordSoftAssertion(false, 'Value is true', true, actual, callSite);
+            return this.recordSoftAssertion(
+                false, 'Value is true', true, actual, callSite
+            );
         }
     }
 
@@ -490,9 +626,15 @@ class Assert {
 
         try {
             expect(actual, 'Value should be false').to.equal(false);
-            return this.recordSoftAssertion(true, 'Value is false', false, actual, callSite);
+
+            return this.recordSoftAssertion(
+                true, 'Value is false', false, actual, callSite
+            );
+
         } catch (error) {
-            return this.recordSoftAssertion(false, 'Value is false', false, actual, callSite);
+            return this.recordSoftAssertion(
+                false, 'Value is false', false, actual, callSite
+            );
         }
     }
 
@@ -502,10 +644,21 @@ class Assert {
 
         try {
             actual = await locator.isVisible();
+
             expect(actual, 'Element should be visible').to.equal(true);
-            return this.recordSoftAssertion(true, 'Element is visible', true, actual, callSite);
+
+            return this.recordSoftAssertion(
+                true, 'Element is visible', true, actual, callSite
+            );
+
         } catch (error) {
-            return this.recordSoftAssertion(false, 'Element is visible', true, actual === undefined ? error.message : actual, callSite);
+            return this.recordSoftAssertion(
+                false,
+                'Element is visible',
+                true,
+                actual === undefined ? error.message : actual,
+                callSite
+            );
         }
     }
 
@@ -519,29 +672,45 @@ class Assert {
 
             expect(actual, 'Element text should match').to.equal(expected);
 
-            return this.recordSoftAssertion(true, 'Element text matches', expected, actual, callSite);
+            return this.recordSoftAssertion(
+                true, 'Element text matches', expected, actual, callSite
+            );
+
         } catch (error) {
-            return this.recordSoftAssertion(false, 'Element text matches', expected, actual === undefined ? error.message : actual, callSite);
+            return this.recordSoftAssertion(
+                false,
+                'Element text matches',
+                expected,
+                actual === undefined ? error.message : actual,
+                callSite
+            );
         }
     }
 
-    // ==================== ASSERT ALL ====================
+    // =========================================================
+    // ASSERT ALL
+    // =========================================================
 
-assertAll() {
-    if (this.softFailures.length === 0) {
-        logger.log('* ✓ All soft assertions passed successfully');
-        return;
+    assertAll() {
+        if (this.softFailures.length === 0) {
+            logger.log('✓ All soft assertions passed successfully');
+            return;
+        }
+
+        const failures = this.softFailures.slice();
+
+        this.softFailures = [];
+
+        throw new Error(
+            `Total Soft Assertion Failures: ${failures.length}\n\n` +
+            failures.join('\n\n')
+        );
     }
-
-    const failures = this.softFailures.slice();
-
-    this.softFailures = [];
-
-    throw new Error( `Total Soft Assertion Failures: ${failures.length}\n\n` + failures.join('\n\n') );
-}
 }
 
-// ==================== GLOBAL INSTANCE ====================
+// =============================================================
+// GLOBAL INSTANCE
+// =============================================================
 
 const assert = new Assert();
 
