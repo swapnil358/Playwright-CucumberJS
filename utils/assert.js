@@ -5,476 +5,546 @@ const { expect } = require('chai');
 const logger = require('./LoggerUtil');
 
 class Assert {
-  constructor() {
-    this.page = null;
-    this.softFailures = [];
-  }
 
-  // ==================== LOGGING HELPERS ====================
-
-  logPassed(message, expected, actual) {
-    logger.log(
-      `\x1b[32m✓\x1b[0m ${message} : Expected: ${expected} | Actual: ${actual} | Result: PASSED`
-    );
-  }
-
-  logFailed(message, expected, actual, error) {
-    logger.log(
-      `\x1b[31m✗\x1b[0m ${message} : Expected: ${expected} | Actual: ${actual} | Result: FAILED`
-    );
-
-    if (error && error.message) {
-      logger.log(`  Error: ${error.message}`);
+    constructor() {
+        this.page = null;
+        this.softFailures = [];
+        this.currentStep = 'Unknown Cucumber step';
     }
-  }
 
-  // Run assertion, log result and preserve original failures
-  runAssertion(message, expected, getActual, assertion) {
-    let actual;
+    // ==================== LOGGING ====================
 
-    try {
-      actual = getActual();
+    logPassed(message, expected, actual) {
+        logger.log(`\x1b[32m✓\x1b[0m ${message} : Expected: ${expected} | Actual: ${actual} | Result: PASSED`);
+    }
 
-      const result = assertion(actual);
+    logFailed(message, expected, actual, error) {
+        logger.log(`\x1b[31m✗\x1b[0m ${message} : Expected: ${expected} | Actual: ${actual} | Result: FAILED`);
 
-      if (result && typeof result.then === 'function') {
-        return result
-          .then(value => {
-            this.logPassed(message, expected, actual);
-            return value;
-          })
-          .catch(error => {
-            this.logFailed(message, expected, actual, error);
+        if (error && error.message) {
+            logger.log(`  Error: ${error.message}`);
+        }
+    }
+
+    // ==================== SOFT ASSERTION HELPERS ====================
+
+    setCurrentStep(stepName) {
+        this.currentStep = stepName;
+    }
+
+    getCallSite() {
+    const stack = new Error().stack || '';
+    const lines = stack.split('\n');
+
+    const caller = lines.find(line =>
+        line.includes('stepDef') &&
+        line.includes('.js:') &&
+        !line.includes('assert.js')
+    );
+
+    if (!caller) {
+        return 'Location unavailable';
+    }
+
+    const match = caller.match(/\((.*)\)/);
+
+    return match ? match[1] : caller.trim();
+}
+
+    recordSoftAssertion(condition, message, expected, actual, callSite) {
+        const status = condition ? 'PASSED' : 'FAILED';
+
+        const logMessage = [
+            `* ${status}: ${message}`,
+            `  Step     : ${this.currentStep}`,
+            `  Location : ${callSite}`,
+            `  Expected : ${expected}`,
+            `  Actual   : ${actual}`
+        ].join('\n');
+
+        logger.log(logMessage);
+
+        if (!condition) {
+            this.softFailures.push(logMessage);
+        }
+
+        return condition;
+    }
+
+    // ==================== PAGE SETUP ====================
+
+    setPage(page) {
+        this.page = page;
+    }
+
+    resetSoftAssertions() {
+        this.softFailures = [];
+        this.currentStep = 'Unknown Cucumber step';
+    }
+
+    // ==================== HARD ASSERTIONS ====================
+
+    assertUrlContains(expected) {
+        let actual;
+
+        try {
+            actual = this.page.url();
+            expect(actual, 'URL should contain expected text').to.include(expected);
+            this.logPassed('URL contains expected text', expected, actual);
+        } catch (error) {
+            this.logFailed('URL contains expected text', expected, actual, error);
             throw error;
-          });
-      }
-
-      this.logPassed(message, expected, actual);
-      return result;
-    } catch (error) {
-      this.logFailed(message, expected, actual, error);
-      throw error;
+        }
     }
-  }
 
-  // ==================== PAGE SETUP ====================
+    assertUrlEquals(expected) {
+        let actual;
 
-  setPage(page) {
-    this.page = page;
-  }
-
-  resetSoftAssertions() {
-    this.softFailures = [];
-  }
-
-  // ==================== HARD ASSERTIONS ====================
-
-  assertUrlContains(expected, message = 'URL contains expected text') {
-    return this.runAssertion(
-      message,
-      expected,
-      () => this.page.url(),
-      actual => expect(actual, message).to.include(expected)
-    );
-  }
-
-  assertUrlEquals(expected, message = 'URL matches expected value') {
-    return this.runAssertion(
-      message,
-      expected,
-      () => this.page.url(),
-      actual => expect(actual, message).to.equal(expected)
-    );
-  }
-
-  assertPageTitle(expected, message = 'Page title matches expected value') {
-    return this.runAssertion(
-      message,
-      expected,
-      () => this.page.title(),
-      async actual => expect(await actual, message).to.equal(expected)
-    );
-  }
-
-  assertEqual(actual, expected, message = 'Values are equal') {
-    return this.runAssertion(
-      message, expected, () => actual,
-      value => expect(value, message).to.equal(expected)
-    );
-  }
-
-  assertNotEqual(actual, expected, message = 'Values are not equal') {
-    return this.runAssertion(
-      message, expected, () => actual,
-      value => expect(value, message).to.not.equal(expected)
-    );
-  }
-
-  assertTrue(value, message = 'Value is true') {
-    return this.runAssertion(
-      message, true, () => value,
-      actual => expect(actual, message).to.equal(true)
-    );
-  }
-
-  assertFalse(value, message = 'Value is false') {
-    return this.runAssertion(
-      message, false, () => value,
-      actual => expect(actual, message).to.equal(false)
-    );
-  }
-
-  assertNull(value, message = 'Value is null') {
-    return this.runAssertion(
-      message, null, () => value,
-      actual => expect(actual, message).to.equal(null)
-    );
-  }
-
-  assertContainsText(actual, expected, message = 'Text contains expected value') {
-    return this.runAssertion(
-      message, expected, () => actual,
-      value => expect(value, message).to.include(expected)
-    );
-  }
-
-  assertDoesNotContainText(
-    actual, expected, message = 'Text excludes unexpected value'
-  ) {
-    return this.runAssertion(
-      message, `Not containing ${expected}`, () => actual,
-      value => expect(value, message).to.not.include(expected)
-    );
-  }
-
-  assertEqualIgnoreCase(actual, expected, message = 'Values match ignoring case') {
-    return this.runAssertion(
-      message, expected, () => actual,
-      value => expect(value.toLowerCase(), message)
-        .to.equal(expected.toLowerCase())
-    );
-  }
-
-  assertEqualIgnoreCaseAndWhitespace(
-    actual, expected, message = 'Values match ignoring case and whitespace'
-  ) {
-    return this.runAssertion(
-      message, expected, () => actual,
-      value => {
-        const normalizedActual = value.trim().replace(/\s+/g, ' ').toLowerCase();
-        const normalizedExpected = expected.trim().replace(/\s+/g, ' ').toLowerCase();
-
-        expect(normalizedActual, message).to.equal(normalizedExpected);
-      }
-    );
-  }
-
-  assertArrayEquals(actual, expected, message = 'Arrays are equal') {
-    return this.runAssertion(
-      message, JSON.stringify(expected), () => actual,
-      value => expect(value, message).to.deep.equal(expected)
-    );
-  }
-
-  assertArrayIncludes(actual, expected, message = 'Array includes expected value') {
-    return this.runAssertion(
-      message, expected, () => actual,
-      value => expect(value, message).to.include(expected)
-    );
-  }
-
-  assertArrayNotIncludes(actual, expected, message = 'Array excludes unexpected value') {
-    return this.runAssertion(
-      message, expected, () => actual,
-      value => expect(value, message).to.not.include(expected)
-    );
-  }
-
-  assertNormalizedJsonEqual(actual, expected, message = 'JSON values are equal') {
-    return this.runAssertion(
-      message, JSON.stringify(expected), () => actual,
-      value => {
-        const actualJson = typeof value === 'string' ? JSON.parse(value) : value;
-        const expectedJson = typeof expected === 'string' ? JSON.parse(expected) : expected;
-
-        expect(actualJson, message).to.deep.equal(expectedJson);
-      }
-    );
-  }
-
-  // ==================== PLAYWRIGHT ASSERTIONS ====================
-
-  async assertElementTextEquals(locator, expected, message = 'Element text matches') {
-    let actual;
-
-    try {
-      actual = (await locator.textContent()) || '';
-      expect(actual.trim(), message).to.equal(expected);
-      this.logPassed(message, expected, actual.trim());
-    } catch (error) {
-      this.logFailed(message, expected, actual, error);
-      throw error;
+        try {
+            actual = this.page.url();
+            expect(actual, 'URL should match expected value').to.equal(expected);
+            this.logPassed('URL matches expected value', expected, actual);
+        } catch (error) {
+            this.logFailed('URL matches expected value', expected, actual, error);
+            throw error;
+        }
     }
-  }
 
-  async assertElementTextEqualsIgnoreCase(
-    locator, expected, message = 'Element text matches ignoring case'
-  ) {
-    let actual;
+    async assertPageTitle(expected) {
+        let actual;
 
-    try {
-      actual = (await locator.textContent()) || '';
-      expect(actual.trim().toLowerCase(), message)
-        .to.equal(expected.trim().toLowerCase());
-
-      this.logPassed(message, expected, actual.trim());
-    } catch (error) {
-      this.logFailed(message, expected, actual, error);
-      throw error;
+        try {
+            actual = await this.page.title();
+            expect(actual, 'Page title should match expected value').to.equal(expected);
+            this.logPassed('Page title matches expected value', expected, actual);
+        } catch (error) {
+            this.logFailed('Page title matches expected value', expected, actual, error);
+            throw error;
+        }
     }
-  }
 
-  async assertElementContainsText(
-    locator, expected, message = 'Element contains expected text'
-  ) {
-    let actual;
-
-    try {
-      actual = (await locator.textContent()) || '';
-      expect(actual, message).to.include(expected);
-      this.logPassed(message, expected, actual);
-    } catch (error) {
-      this.logFailed(message, expected, actual, error);
-      throw error;
+    assertEqual(actual, expected) {
+        try {
+            expect(actual, 'Values should be equal').to.equal(expected);
+            this.logPassed('Values are equal', expected, actual);
+        } catch (error) {
+            this.logFailed('Values are equal', expected, actual, error);
+            throw error;
+        }
     }
-  }
 
-  async assertElementIsVisible(locator, message = 'Element is visible') {
-    let actual;
-
-    try {
-      actual = await locator.isVisible();
-      expect(actual, message).to.equal(true);
-      this.logPassed(message, true, actual);
-    } catch (error) {
-      this.logFailed(message, true, actual, error);
-      throw error;
+    assertNotEqual(actual, expected) {
+        try {
+            expect(actual, 'Values should not be equal').to.not.equal(expected);
+            this.logPassed('Values are not equal', `Not ${expected}`, actual);
+        } catch (error) {
+            this.logFailed('Values are not equal', `Not ${expected}`, actual, error);
+            throw error;
+        }
     }
-  }
 
-  async assertElementIsNotVisible(locator, message = 'Element is not visible') {
-    let actual;
-
-    try {
-      actual = await locator.isVisible();
-      expect(actual, message).to.equal(false);
-      this.logPassed(message, false, actual);
-    } catch (error) {
-      this.logFailed(message, false, actual, error);
-      throw error;
+    assertTrue(actual) {
+        try {
+            expect(actual, 'Value should be true').to.equal(true);
+            this.logPassed('Value is true', true, actual);
+        } catch (error) {
+            this.logFailed('Value is true', true, actual, error);
+            throw error;
+        }
     }
-  }
 
-  async assertElementIsEnabled(locator, message = 'Element is enabled') {
-    let actual;
-
-    try {
-      actual = await locator.isEnabled();
-      expect(actual, message).to.equal(true);
-      this.logPassed(message, true, actual);
-    } catch (error) {
-      this.logFailed(message, true, actual, error);
-      throw error;
+    assertFalse(actual) {
+        try {
+            expect(actual, 'Value should be false').to.equal(false);
+            this.logPassed('Value is false', false, actual);
+        } catch (error) {
+            this.logFailed('Value is false', false, actual, error);
+            throw error;
+        }
     }
-  }
 
-  async assertElementIsDisabled(locator, message = 'Element is disabled') {
-    let actual;
-
-    try {
-      actual = await locator.isDisabled();
-      expect(actual, message).to.equal(true);
-      this.logPassed(message, true, actual);
-    } catch (error) {
-      this.logFailed(message, true, actual, error);
-      throw error;
+    assertNull(actual) {
+        try {
+            expect(actual, 'Value should be null').to.equal(null);
+            this.logPassed('Value is null', null, actual);
+        } catch (error) {
+            this.logFailed('Value is null', null, actual, error);
+            throw error;
+        }
     }
-  }
 
-  async assertElementIsChecked(locator, message = 'Element is checked') {
-    let actual;
-
-    try {
-      actual = await locator.isChecked();
-      expect(actual, message).to.equal(true);
-      this.logPassed(message, true, actual);
-    } catch (error) {
-      this.logFailed(message, true, actual, error);
-      throw error;
+    assertContainsText(actual, expected) {
+        try {
+            expect(actual, 'Text should contain expected value').to.include(expected);
+            this.logPassed('Text contains expected value', expected, actual);
+        } catch (error) {
+            this.logFailed('Text contains expected value', expected, actual, error);
+            throw error;
+        }
     }
-  }
 
-  async assertElementIsNotChecked(locator, message = 'Element is not checked') {
-    let actual;
-
-    try {
-      actual = await locator.isChecked();
-      expect(actual, message).to.equal(false);
-      this.logPassed(message, false, actual);
-    } catch (error) {
-      this.logFailed(message, false, actual, error);
-      throw error;
+    assertDoesNotContainText(actual, expected) {
+        try {
+            expect(actual, 'Text should not contain unexpected value').to.not.include(expected);
+            this.logPassed('Text excludes unexpected value', expected, actual);
+        } catch (error) {
+            this.logFailed('Text excludes unexpected value', expected, actual, error);
+            throw error;
+        }
     }
-  }
 
-  async assertElementValueEquals(locator, expected, message = 'Element value matches') {
-    let actual;
-
-    try {
-      actual = await locator.inputValue();
-      expect(actual, message).to.equal(expected);
-      this.logPassed(message, expected, actual);
-    } catch (error) {
-      this.logFailed(message, expected, actual, error);
-      throw error;
+    assertEqualIgnoreCase(actual, expected) {
+        try {
+            expect(actual.toLowerCase(), 'Values should match ignoring case')
+                .to.equal(expected.toLowerCase());
+            this.logPassed('Values match ignoring case', expected, actual);
+        } catch (error) {
+            this.logFailed('Values match ignoring case', expected, actual, error);
+            throw error;
+        }
     }
-  }
 
-  async assertElementAttributeEquals(
-    locator, attribute, expected, message = 'Element attribute matches'
-  ) {
-    let actual;
+    assertEqualIgnoreCaseAndWhitespace(actual, expected) {
+        try {
+            const actualValue = actual.trim().replace(/\s+/g, ' ').toLowerCase();
+            const expectedValue = expected.trim().replace(/\s+/g, ' ').toLowerCase();
 
-    try {
-      actual = await locator.getAttribute(attribute);
-      expect(actual, message).to.equal(expected);
-      this.logPassed(message, expected, actual);
-    } catch (error) {
-      this.logFailed(message, expected, actual, error);
-      throw error;
+            expect(actualValue, 'Values should match ignoring case and whitespace').to.equal(expectedValue);
+            this.logPassed('Values match ignoring case and whitespace', expected, actual);
+        } catch (error) {
+            this.logFailed('Values match ignoring case and whitespace', expected, actual, error);
+            throw error;
+        }
     }
-  }
 
-  async assertElementIsClickable(locator, message = 'Element is visible and enabled') {
-    let actual;
-
-    try {
-      const visible = await locator.isVisible();
-      const enabled = await locator.isEnabled();
-      actual = `visible=${visible}, enabled=${enabled}`;
-
-      expect(visible, message).to.equal(true);
-      expect(enabled, message).to.equal(true);
-
-      this.logPassed(message, 'visible=true, enabled=true', actual);
-    } catch (error) {
-      this.logFailed(message, 'visible=true, enabled=true', actual, error);
-      throw error;
+    assertArrayEquals(actual, expected) {
+        try {
+            expect(actual, 'Arrays should be equal').to.deep.equal(expected);
+            this.logPassed('Arrays are equal', expected, actual);
+        } catch (error) {
+            this.logFailed('Arrays are equal', expected, actual, error);
+            throw error;
+        }
     }
-  }
 
-  async assertArrayOfElementsAreDisplayed(
-    locators, message = 'All elements are displayed'
-  ) {
-    let actual = [];
-
-    try {
-      for (const locator of locators) {
-        actual.push(await locator.isVisible());
-      }
-
-      expect(actual.every(Boolean), message).to.equal(true);
-      this.logPassed(message, true, actual);
-    } catch (error) {
-      this.logFailed(message, true, actual, error);
-      throw error;
+    assertArrayIncludes(actual, expected) {
+        try {
+            expect(actual, 'Array should include expected value').to.include(expected);
+            this.logPassed('Array includes expected value', expected, actual);
+        } catch (error) {
+            this.logFailed('Array includes expected value', expected, actual, error);
+            throw error;
+        }
     }
-  }
 
-  async assertArrayOfElementsTextEquals(
-    locators, expectedTexts, message = 'Element texts match expected values'
-  ) {
-    let actual = [];
-
-    try {
-      expect(locators.length, message).to.equal(expectedTexts.length);
-
-      for (const locator of locators) {
-        actual.push(((await locator.textContent()) || '').trim());
-      }
-
-      expect(actual, message).to.deep.equal(expectedTexts);
-      this.logPassed(message, expectedTexts, actual);
-    } catch (error) {
-      this.logFailed(message, expectedTexts, actual, error);
-      throw error;
+    assertArrayNotIncludes(actual, expected) {
+        try {
+            expect(actual, 'Array should not include unexpected value').to.not.include(expected);
+            this.logPassed('Array excludes unexpected value', expected, actual);
+        } catch (error) {
+            this.logFailed('Array excludes unexpected value', expected, actual, error);
+            throw error;
+        }
     }
-  }
 
-  // ==================== SOFT ASSERTIONS ====================
+    assertNormalizedJsonEqual(actual, expected) {
+        try {
+            const actualJson = typeof actual === 'string' ? JSON.parse(actual) : actual;
+            const expectedJson = typeof expected === 'string' ? JSON.parse(expected) : expected;
 
-  async softAssertEqual(actual, expected, message = 'Soft equality assertion') {
-    try {
-      this.assertEqual(actual, expected, message);
-    } catch (error) {
-      this.softFailures.push(error.message);
+            expect(actualJson, 'JSON values should be equal').to.deep.equal(expectedJson);
+            this.logPassed('JSON values are equal', expectedJson, actualJson);
+        } catch (error) {
+            this.logFailed('JSON values are equal', expected, actual, error);
+            throw error;
+        }
     }
-  }
 
-  async softAssertTrue(value, message = 'Soft true assertion') {
-    try {
-      this.assertTrue(value, message);
-    } catch (error) {
-      this.softFailures.push(error.message);
+    // ==================== PLAYWRIGHT ASSERTIONS ====================
+
+    async assertElementTextEquals(locator, expected) {
+        let actual;
+
+        try {
+            actual = (await locator.textContent()) || '';
+            expect(actual.trim(), 'Element text should match').to.equal(expected);
+            this.logPassed('Element text matches', expected, actual.trim());
+        } catch (error) {
+            this.logFailed('Element text matches', expected, actual, error);
+            throw error;
+        }
     }
-  }
 
-  async softAssertFalse(value, message = 'Soft false assertion') {
-    try {
-      this.assertFalse(value, message);
-    } catch (error) {
-      this.softFailures.push(error.message);
+    async assertElementTextEqualsIgnoreCase(locator, expected) {
+        let actual;
+
+        try {
+            actual = (await locator.textContent()) || '';
+
+            expect(actual.trim().toLowerCase(), 'Element text should match ignoring case')
+                .to.equal(expected.trim().toLowerCase());
+
+            this.logPassed('Element text matches ignoring case', expected, actual.trim());
+        } catch (error) {
+            this.logFailed('Element text matches ignoring case', expected, actual, error);
+            throw error;
+        }
     }
-  }
 
-  async softAssertElementIsVisible(locator, message = 'Soft element visibility assertion') {
-    try {
-      await this.assertElementIsVisible(locator, message);
-    } catch (error) {
-      this.softFailures.push(error.message);
+    async assertElementContainsText(locator, expected) {
+        let actual;
+
+        try {
+            actual = (await locator.textContent()) || '';
+            expect(actual, 'Element should contain expected text').to.include(expected);
+            this.logPassed('Element contains expected text', expected, actual);
+        } catch (error) {
+            this.logFailed('Element contains expected text', expected, actual, error);
+            throw error;
+        }
     }
-  }
 
-  async softAssertElementTextEquals(
-    locator, expected, message = 'Soft element text assertion'
-  ) {
-    try {
-      await this.assertElementTextEquals(locator, expected, message);
-    } catch (error) {
-      this.softFailures.push(error.message);
+    async assertElementIsVisible(locator) {
+        let actual;
+
+        try {
+            actual = await locator.isVisible();
+            expect(actual, 'Element should be visible').to.equal(true);
+            this.logPassed('Element is visible', true, actual);
+        } catch (error) {
+            this.logFailed('Element is visible', true, actual, error);
+            throw error;
+        }
     }
-  }
 
-  assertAll() {
+    async assertElementIsNotVisible(locator) {
+        let actual;
+
+        try {
+            actual = await locator.isVisible();
+            expect(actual, 'Element should not be visible').to.equal(false);
+            this.logPassed('Element is not visible', false, actual);
+        } catch (error) {
+            this.logFailed('Element is not visible', false, actual, error);
+            throw error;
+        }
+    }
+
+    async assertElementIsEnabled(locator) {
+        let actual;
+
+        try {
+            actual = await locator.isEnabled();
+            expect(actual, 'Element should be enabled').to.equal(true);
+            this.logPassed('Element is enabled', true, actual);
+        } catch (error) {
+            this.logFailed('Element is enabled', true, actual, error);
+            throw error;
+        }
+    }
+
+    async assertElementIsDisabled(locator) {
+        let actual;
+
+        try {
+            actual = await locator.isDisabled();
+            expect(actual, 'Element should be disabled').to.equal(true);
+            this.logPassed('Element is disabled', true, actual);
+        } catch (error) {
+            this.logFailed('Element is disabled', true, actual, error);
+            throw error;
+        }
+    }
+
+    async assertElementIsChecked(locator) {
+        let actual;
+
+        try {
+            actual = await locator.isChecked();
+            expect(actual, 'Element should be checked').to.equal(true);
+            this.logPassed('Element is checked', true, actual);
+        } catch (error) {
+            this.logFailed('Element is checked', true, actual, error);
+            throw error;
+        }
+    }
+
+    async assertElementIsNotChecked(locator) {
+        let actual;
+
+        try {
+            actual = await locator.isChecked();
+            expect(actual, 'Element should not be checked').to.equal(false);
+            this.logPassed('Element is not checked', false, actual);
+        } catch (error) {
+            this.logFailed('Element is not checked', false, actual, error);
+            throw error;
+        }
+    }
+
+    async assertElementValueEquals(locator, expected) {
+        let actual;
+
+        try {
+            actual = await locator.inputValue();
+            expect(actual, 'Element value should match').to.equal(expected);
+            this.logPassed('Element value matches', expected, actual);
+        } catch (error) {
+            this.logFailed('Element value matches', expected, actual, error);
+            throw error;
+        }
+    }
+
+    async assertElementAttributeEquals(locator, attribute, expected) {
+        let actual;
+
+        try {
+            actual = await locator.getAttribute(attribute);
+            expect(actual, 'Element attribute should match').to.equal(expected);
+            this.logPassed('Element attribute matches', expected, actual);
+        } catch (error) {
+            this.logFailed('Element attribute matches', expected, actual, error);
+            throw error;
+        }
+    }
+
+    async assertElementIsClickable(locator) {
+        let actual;
+
+        try {
+            const visible = await locator.isVisible();
+            const enabled = await locator.isEnabled();
+
+            actual = `visible=${visible}, enabled=${enabled}`;
+
+            expect(visible, 'Element should be visible').to.equal(true);
+            expect(enabled, 'Element should be enabled').to.equal(true);
+
+            this.logPassed('Element is clickable', 'visible=true, enabled=true', actual);
+        } catch (error) {
+            this.logFailed('Element is clickable', 'visible=true, enabled=true', actual, error);
+            throw error;
+        }
+    }
+
+    async assertArrayOfElementsAreDisplayed(locators) {
+        let actual = [];
+
+        try {
+            for (const locator of locators) {
+                actual.push(await locator.isVisible());
+            }
+
+            expect(actual.every(Boolean), 'All elements should be displayed').to.equal(true);
+            this.logPassed('All elements are displayed', true, actual);
+        } catch (error) {
+            this.logFailed('All elements are displayed', true, actual, error);
+            throw error;
+        }
+    }
+
+    async assertArrayOfElementsTextEquals(locators, expectedTexts) {
+        let actual = [];
+
+        try {
+            expect(locators.length, 'Number of elements should match').to.equal(expectedTexts.length);
+
+            for (const locator of locators) {
+                actual.push(((await locator.textContent()) || '').trim());
+            }
+
+            expect(actual, 'Element texts should match expected values').to.deep.equal(expectedTexts);
+            this.logPassed('Element texts match expected values', expectedTexts, actual);
+        } catch (error) {
+            this.logFailed('Element texts match expected values', expectedTexts, actual, error);
+            throw error;
+        }
+    }
+
+    // ==================== SOFT ASSERTIONS ====================
+
+    softAssertEqual(actual, expected) {
+        const callSite = this.getCallSite();
+
+        try {
+            expect(actual, 'Values should be equal').to.equal(expected);
+            return this.recordSoftAssertion(true, 'Values are equal', expected, actual, callSite);
+        } catch (error) {
+            return this.recordSoftAssertion(false, 'Values are equal', expected, actual, callSite);
+        }
+    }
+
+    softAssertTrue(actual) {
+        const callSite = this.getCallSite();
+
+        try {
+            expect(actual, 'Value should be true').to.equal(true);
+            return this.recordSoftAssertion(true, 'Value is true', true, actual, callSite);
+        } catch (error) {
+            return this.recordSoftAssertion(false, 'Value is true', true, actual, callSite);
+        }
+    }
+
+    softAssertFalse(actual) {
+        const callSite = this.getCallSite();
+
+        try {
+            expect(actual, 'Value should be false').to.equal(false);
+            return this.recordSoftAssertion(true, 'Value is false', false, actual, callSite);
+        } catch (error) {
+            return this.recordSoftAssertion(false, 'Value is false', false, actual, callSite);
+        }
+    }
+
+    async softAssertElementIsVisible(locator) {
+        const callSite = this.getCallSite();
+        let actual;
+
+        try {
+            actual = await locator.isVisible();
+            expect(actual, 'Element should be visible').to.equal(true);
+            return this.recordSoftAssertion(true, 'Element is visible', true, actual, callSite);
+        } catch (error) {
+            return this.recordSoftAssertion(false, 'Element is visible', true, actual === undefined ? error.message : actual, callSite);
+        }
+    }
+
+    async softAssertElementTextEquals(locator, expected) {
+        const callSite = this.getCallSite();
+        let actual;
+
+        try {
+            actual = (await locator.textContent()) || '';
+            actual = actual.trim();
+
+            expect(actual, 'Element text should match').to.equal(expected);
+
+            return this.recordSoftAssertion(true, 'Element text matches', expected, actual, callSite);
+        } catch (error) {
+            return this.recordSoftAssertion(false, 'Element text matches', expected, actual === undefined ? error.message : actual, callSite);
+        }
+    }
+
+    // ==================== ASSERT ALL ====================
+
+assertAll() {
     if (this.softFailures.length === 0) {
-      this.logPassed('All soft assertions passed', 0, 0);
-      return;
+        logger.log('* ✓ All soft assertions passed successfully');
+        return;
     }
 
     const failures = this.softFailures.slice();
+
     this.softFailures = [];
 
-    const error = new Error(
-      `Soft assertion failures (${failures.length}):\n- ${failures.join('\n- ')}`
-    );
-
-    this.logFailed('Soft assertions failed', 0, failures.length, error);
-    throw error;
-  }
+    throw new Error( `Total Soft Assertion Failures: ${failures.length}\n\n` + failures.join('\n\n') );
+}
 }
 
-// Shared instance
+// ==================== GLOBAL INSTANCE ====================
+
 const assert = new Assert();
+
 global.assert = assert;
 
 module.exports = { Assert, assert };
