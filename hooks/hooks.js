@@ -1,14 +1,4 @@
-
-const {
-  Before,
-  After,
-  BeforeStep,
-  AfterStep,
-  AfterAll,
-  Status,
-  setDefaultTimeout
-} = require('@cucumber/cucumber');
-
+const { Before, After, BeforeStep, AfterStep, AfterAll, Status, setDefaultTimeout } = require('@cucumber/cucumber');
 const { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
@@ -22,97 +12,84 @@ global.assert = new Assert();
 
 setDefaultTimeout(30000);
 
-// Before scenario
+// ==================== BEFORE SCENARIO ====================
+
 Before(async function (scenario) {
   logger.clearLogs();
 
   this.scenarioName = scenario.pickle.name;
+
   logger.log(`Starting scenario: ${this.scenarioName}`);
 
-  this.browser = await chromium.launch({
-    headless: process.env.HEADLESS !== 'false'
-  });
+  // Launch Playwright browser
+  this.browser = await chromium.launch({ headless: process.env.HEADLESS !== 'false' });
 
+  // Create browser context and page
   this.context = await this.browser.newContext();
   this.page = await this.context.newPage();
 
+  // Initialise global browser utility
   global.browser = new Browser(this.page);
+
+  // Initialise global assertion utility
   assert.setPage(this.page);
   assert.resetSoftAssertions();
 
   logger.log('Browser, context and page created');
 });
 
-// Before step
+// ==================== BEFORE STEP ====================
+
 BeforeStep(function ({ pickleStep }) {
+
+  // Automatically capture current Cucumber step
+  assert.setCurrentStep(pickleStep.text);
+
   logger.success(`Starting step: ${pickleStep.text}`);
 });
 
-// After step
+// ==================== AFTER STEP ====================
+
 AfterStep(async function ({ pickleStep, result }) {
-  if (result.status === Status.PASSED) {
-    logger.log(`Step passed: ${pickleStep.text}`);
-  }
+    if (result.status === Status.FAILED) {
+        logger.error(`Step failed: ${pickleStep.text}`);
 
-  if (result.status === Status.FAILED) {
-    logger.error(`Step failed: ${pickleStep.text}`);
+        if (this.page) {
+            const screenshot = await this.page.screenshot({ fullPage: true });
 
-    if (result.message) {
-      logger.error(result.message);
+            await this.attach(screenshot, {
+                mediaType: 'image/png',
+                fileName: 'failure-screenshot.png'
+            });
+        }
+
+        await this.attach(logger.getLogs(), {
+            mediaType: 'text/plain',
+            fileName: 'execution-logs.txt'
+        });
     }
-
-    if (this.page) {
-      const screenshot = await this.page.screenshot({
-        fullPage: true
-      });
-
-      await this.attach(screenshot, {
-        mediaType: 'image/png',
-        fileName: 'failure-screenshot.png'
-      });
-
-      const screenshotDir = path.join(
-        process.cwd(),
-        'screenshots'
-      );
-
-      fs.mkdirSync(screenshotDir, { recursive: true });
-
-      const screenshotPath = path.join(
-        screenshotDir,
-        `failure-${Date.now()}.png`
-      );
-
-      fs.writeFileSync(screenshotPath, screenshot);
-
-      logger.log(`Screenshot saved: ${screenshotPath}`);
-    }
-
-    await this.attach(logger.getLogs(), {
-      mediaType: 'text/plain',
-      fileName: 'execution-logs.txt'
-    });
-  }
 });
 
-// After scenario
+// ==================== AFTER SCENARIO ====================
+
 After(async function (scenario) {
-  logger.log(
-    `Scenario: ${scenario.pickle.name} - ${scenario.result?.status}`
-  );
 
-  if (this.context) {
-    await this.context.close();
+  logger.log( `Scenario: ${scenario.pickle.name} - ${scenario.result?.status}` );
+  try {
+    if (this.context) {
+      await this.context.close();
+    }
+
+    if (this.browser) {
+      await this.browser.close();
+    }
+  } finally {
+    logger.log('Browser resources closed');
   }
-
-  if (this.browser) {
-    await this.browser.close();
-  }
-
-  logger.log('Browser resources closed');
 });
 
-// Add author and Jira mapping after all scenarios
+// ==================== AFTER ALL ====================
+
 AfterAll(function () {
   addAllureMapping();
 });
