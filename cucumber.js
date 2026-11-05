@@ -17,14 +17,16 @@ module.exports = {
     ],
 
     // Run with: cross-env TAG="@smoke" cucumber-js
-    //tags: process.env.TAG || '@smoke',
+    tags: process.env.TAG || '@e2e',
 
     retry: process.env.RETRY
       ? Number(process.env.RETRY)
       : 0,
 
     // Keep sequential execution while troubleshooting Allure
-    parallel: 10,
+    parallel: process.env.PARALLEL
+    ? Number(process.env.PARALLEL)
+    : 1,
 
     paths: [
       'features.js/support/**/*.feature'

@@ -62,7 +62,7 @@ Feature: SauceDemo Login
     Then I should see a login error
     Then I check for all soft assertion failures
 
-  @regression @negative
+  @regression @negative @e2e
   Scenario: Login with valid username and incorrect password
     Given I open the login page
     When I login with username "standard_user" and password "wrong_password"
