@@ -42,21 +42,17 @@ pipeline {
 
     environment {
         TEST_EXIT_CODE = '0'
-        ALLURE_EXIT_CODE = '0'
     }
 
     stages {
 
-        // 1. Checkout source code
         stage('Checkout') {
             steps {
                 checkout scm
-
                 echo 'GitHub source code checked out successfully'
             }
         }
 
-        // 2. Validate Node.js and npm
         stage('Validate Environment') {
             steps {
                 bat 'node --version'
@@ -65,21 +61,18 @@ pipeline {
             }
         }
 
-        // 3. Install dependencies
         stage('Install Dependencies') {
             steps {
                 bat 'npm ci'
             }
         }
 
-        // 4. Install Playwright Chromium
         stage('Install Playwright Browser') {
             steps {
                 bat 'npx playwright install chromium'
             }
         }
 
-        // 5. Clean previous execution results
         stage('Clean Previous Results') {
             steps {
                 bat '''
@@ -100,17 +93,14 @@ pipeline {
             }
         }
 
-        // 6. Execute Cucumber tests
         stage('Execute Cucumber Tests') {
             steps {
                 script {
 
-                    // Validate parallel worker count
                     if (!(params.PARALLEL ==~ /^[1-9][0-9]*$/)) {
                         error('PARALLEL must be a positive integer')
                     }
 
-                    // Validate retry count
                     if (!(params.RETRY ==~ /^[0-9]+$/)) {
                         error('RETRY must be a non-negative integer')
                     }
@@ -133,52 +123,14 @@ pipeline {
             }
         }
 
-        // 7. Generate Allure report even when tests fail
-        stage('Generate Allure Report') {
-            steps {
-                script {
-
-                    if (fileExists('allure-results')) {
-
-                        def reportStatus = bat(
-                            returnStatus: true,
-                            script: 'npm run report:generate'
-                        )
-
-                        env.ALLURE_EXIT_CODE = "${reportStatus}"
-
-                        echo "Allure report exit code: ${reportStatus}"
-
-                    } else {
-
-                        env.ALLURE_EXIT_CODE = '1'
-
-                        echo 'Allure results directory not found'
-                    }
-                }
-            }
-        }
-
-        // 8. Evaluate final build status
         stage('Evaluate Build Result') {
             steps {
                 script {
-
                     if (env.TEST_EXIT_CODE != '0') {
-
                         currentBuild.result = 'FAILURE'
-
                         echo 'Cucumber test execution failed'
-
-                    } else if (env.ALLURE_EXIT_CODE != '0') {
-
-                        currentBuild.result = 'UNSTABLE'
-
-                        echo 'Allure report generation failed'
-
                     } else {
-
-                        echo 'Tests and Allure report completed successfully'
+                        echo 'Cucumber test execution completed successfully'
                     }
                 }
             }
@@ -186,45 +138,49 @@ pipeline {
     }
 
     post {
-    always {
-        echo 'Publishing Allure report...'
 
-        archiveArtifacts(
-            artifacts: 'allure-results/**, allure-report/**',
-            allowEmptyArchive: true,
-            fingerprint: true
-        )
+        always {
+            echo 'Publishing Allure report...'
 
-        script {
-            if (fileExists('allure-report/index.html')) {
-                publishHTML(target: [
-                    reportName: 'Allure Report',
-                    reportDir: 'allure-report',
-                    reportFiles: 'index.html',
-                    keepAll: true,
-                    alwaysLinkToLastBuild: true,
-                    allowMissing: true
-                ])
-            } else {
-                echo 'Allure report not available'
+            archiveArtifacts(
+                artifacts: 'allure-results/**',
+                allowEmptyArchive: true,
+                fingerprint: true
+            )
+
+            script {
+                if (fileExists('allure-results')) {
+
+                    allure([
+                        includeProperties: false,
+                        jdk: '',
+                        results: [[
+                            path: 'allure-results'
+                        ]]
+                    ])
+
+                    echo 'Allure report published successfully'
+
+                } else {
+                    echo 'Allure results directory not found. Report skipped.'
+                }
             }
         }
-    }
 
-    success {
-        echo 'Pipeline completed successfully!'
-    }
+        success {
+            echo 'Pipeline completed successfully!'
+        }
 
-    failure {
-        echo 'Pipeline failed. Check the Allure report and console output.'
-    }
+        failure {
+            echo 'Pipeline failed. Check Console Output and Allure Report.'
+        }
 
-    unstable {
-        echo 'Pipeline completed with unstable status.'
-    }
+        unstable {
+            echo 'Pipeline completed with unstable status.'
+        }
 
-    cleanup {
-        echo 'Pipeline execution completed.'
+        cleanup {
+            echo 'Pipeline execution completed.'
+        }
     }
-}
 }
