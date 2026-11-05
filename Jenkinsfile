@@ -17,7 +17,7 @@ pipeline {
     parameters {
         string(
             name: 'TAG',
-            defaultValue: '@e2e',
+            defaultValue: '',
             description: 'Cucumber tag: @smoke, @regression or @e2e'
         )
 
