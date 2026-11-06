@@ -140,30 +140,51 @@ pipeline {
     post {
 
         always {
-            echo 'Publishing Allure report...'
-
-            archiveArtifacts(
-                artifacts: 'allure-results/**',
-                allowEmptyArchive: true,
-                fingerprint: true
-            )
+            echo 'Preparing and publishing Allure report...'
 
             script {
-                if (fileExists('allure-results')) {
 
-                    allure([
-                        includeProperties: false,
-                        jdk: '',
-                        results: [[
-                            path: 'allure-results'
-                        ]]
-                    ])
+                // Resolve the effective Cucumber tag
+                def effectiveTag = params.TAG?.trim()
+                    ? params.TAG.trim()
+                    : '@e2e'
 
-                    echo 'Allure report published successfully'
-
-                } else {
-                    echo 'Allure results directory not found. Report skipped.'
+                // Ensure Allure results directory exists
+                if (!fileExists('allure-results')) {
+                    bat 'mkdir allure-results'
                 }
+
+                // Create Allure Environment properties
+                writeFile(
+                    file: 'allure-results/environment.properties',
+                    text: """Application URL=https://www.saucedemo.com/
+Cucumber Tags=${effectiveTag}
+Browser=Chromium
+Headless=${params.HEADLESS}
+Parallel Workers=${params.PARALLEL}
+Retry Count=${params.RETRY}
+"""
+                )
+
+                echo 'Allure environment.properties created successfully'
+
+                // Archive Allure raw results
+                archiveArtifacts(
+                    artifacts: 'allure-results/**',
+                    allowEmptyArchive: true,
+                    fingerprint: true
+                )
+
+                // Publish native Allure report
+                allure([
+                    includeProperties: false,
+                    jdk: '',
+                    results: [[
+                        path: 'allure-results'
+                    ]]
+                ])
+
+                echo 'Allure report published successfully'
             }
         }
 
